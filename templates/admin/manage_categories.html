@@ -1,0 +1,22 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Manage Categories{% endblock %}
+
+
+
+{% block content %}
+<h2>Manage Categories</h2>
+
+<div class="card stat-card mb-4 p-4">
+    <form method="post">
+        {{ form.hidden_tag() }}
+        {{ form.name(class="form-control w-50 d-inline") }}
+        {{ form.submit(class="btn btn-primary ms-2") }}
+    </form>
+</div>
+
+<ul class="list-group">
+    {% for cat in categories %}
+        <li class="list-group-item">{{ cat.name }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}

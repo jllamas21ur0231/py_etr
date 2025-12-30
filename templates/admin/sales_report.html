@@ -1,0 +1,84 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Sales Report{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Sales Report</h2>
+
+<!-- Period Selector -->
+<div class="btn-group mb-3">
+    <a href="?period=daily" class="btn btn-outline-primary {% if period == 'daily' %}active{% endif %}">Daily</a>
+    <a href="?period=weekly" class="btn btn-outline-primary {% if period == 'weekly' %}active{% endif %}">Weekly</a>
+    <a href="?period=monthly" class="btn btn-outline-primary {% if period == 'monthly' %}active{% endif %}">Monthly</a>
+</div>
+
+<!-- Print Button -->
+<button onclick="window.print()" class="btn btn-success mb-4 ms-3">
+    <i class="fas fa-print me-2"></i> Print to PDF
+</button>
+
+<!-- Report Table -->
+<div class="card stat-card">
+    <div class="card-body">
+        <h5 class="card-title text-center mb-4 print-title">
+            Sales Report - {{ period|capitalize }} (As of December 26, 2025)
+        </h5>
+
+        <table class="table table-hover table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Period</th>
+                    <th>Total Sales</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if report %}
+                    {% for row in report %}
+                        <tr>
+                            <td>{{ row.date|default(row.week|default(row.month)) }}</td>
+                            <td>₱{{ "%.2f"|format(row.sales|default(0)) }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted">No sales data available for this period.</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+            <tfoot>
+                <tr class="table-primary fw-bold">
+                    <th>Total</th>
+                    <th>₱{{ "%.2f"|format(report|map(attribute='sales')|sum|default(0)) }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<style>
+    @media print {
+        .sidebar, .btn-group, button, .alert {
+            display: none !important;
+        }
+        .main-content {
+            margin-left: 0 !important;
+            padding: 20px !important;
+        }
+        .card {
+            box-shadow: none;
+            border: none;
+        }
+        .print-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        body {
+            background: white;
+            font-size: 12pt;
+        }
+        table {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}

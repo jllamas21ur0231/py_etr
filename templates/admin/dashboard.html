@@ -1,0 +1,127 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Year Filter -->
+<div class="mb-4">
+    <form method="get">
+        <div class="row">
+            <div class="col-md-3">
+                <select name="year" class="form-select">
+                    {% for y in range(2020, 2026) %}  <!-- Adjust range as needed -->
+                        <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">Filter by Year</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Top Stat Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card p-4 text-center">
+            <i class="fas fa-users fa-2x text-primary mb-3"></i>
+            <h3>{{ total_users }}</h3>
+            <p>Total Users <span class="trend-up">↑ <!-- Compute % if needed --></span></p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card p-4 text-center">
+            <i class="fas fa-shopping-cart fa-2x text-info mb-3"></i>
+            <h3>{{ total_orders }}</h3>
+            <p>Total Orders <span class="trend-up">↑</span></p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card p-4 text-center">
+            <i class="fas fa-dollar-sign fa-2x text-success mb-3"></i>
+            <h3>₱{{ total_sales }}</h3>
+            <p>Total Sales <span class="trend-up">↑</span></p>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card p-4 text-center">
+            <i class="fas fa-boxes fa-2x text-warning mb-3"></i>
+            <h3>{{ total_products }}</h3>
+            <p>Total Products <span class="trend-up">↑</span></p>
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5>Total Users by Month ({{ year }})</h5>
+                <canvas id="usersChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5>Total Sales by Month ({{ year }}) <span class="text-muted small">₱{{ total_sales }} total</span></h5>
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Shipping Orders List -->
+<h5>Shipping Orders List</h5>
+<table class="table table-hover">
+    <thead class="table-light">
+        <tr>
+            <th>Tracking ID</th>
+            <th>Destination</th>
+            <th>Customer</th>
+            <th>Delivery Time</th>
+            <th>Carrier</th>
+            <th>Cost</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+            <tr>
+                <td>#TD{{ order.id }}</td>
+                <td><img src="https://flagcdn.com/us.svg" width="20"> USA <!-- Replace with real country if added to DB --></td>
+                <td><img src="https://i.pravatar.cc/30?img={{ order.user_id }}" class="rounded-circle me-2"> {{ order.customer_name }}</td>
+                <td>{{ order.days_since }} days</td>
+                <td><img src="https://i.pravatar.cc/30?img=10" class="rounded-circle me-2"> Standard Carrier</td>
+                <td>₱{{ order.total_amount }}</td>
+                <td><span class="badge bg-{% if order.status == 'Delivered' %}success{% elif order.status == 'Shipped' %}info{% elif order.status == 'Declined' %}danger{% else %}warning{% endif %}">{{ order.status }}</span></td>
+            </tr>
+        {% else %}
+            <tr><td colspan="7">No orders yet.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+    // Users Bar Chart
+    new Chart(document.getElementById('usersChart'), {
+        type: 'bar',
+        data: { 
+            labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
+            datasets: [{ label: 'Users', data: {{ users_by_month }}, backgroundColor: '#0d6efd' }] 
+        },
+        options: { scales: { y: { beginAtZero: true } } }
+    });
+
+    // Sales Line Chart
+    new Chart(document.getElementById('salesChart'), {
+        type: 'line',
+        data: { 
+            labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
+            datasets: [{ label: 'Sales', data: {{ sales_by_month }}, fill: true, backgroundColor: 'rgba(13,110,253,0.2)', borderColor: '#0d6efd' }] 
+        },
+        options: { scales: { y: { beginAtZero: true } } }
+    });
+</script>
+{% endblock %}

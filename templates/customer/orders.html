@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}My Orders{% endblock %}
+
+{% block content %}
+<h2>My Orders</h2>
+
+{% if orders %}
+    <table class="table table-bordered">
+        <thead class="table-dark">
+            <tr>
+                <th>Order ID</th>
+                <th>Date</th>
+                <th>Product</th>
+                <th>Image</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Proof</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+                <tr>
+                    <td>{{ order.id }}</td>
+                    <td>{{ order.order_date }}</td>
+                    <td>{{ order.product_name }}</td>
+                    <td>
+                        {% if order.image %}
+                            <img src="{{ url_for('static', filename='uploads/products/' + order.image) }}" width="80" class="rounded">
+                        {% endif %}
+                        {{ order.product_name }}
+                    </td>
+                    <td>₱{{ order.total_amount }}</td>
+                    <td>
+                        <span class="badge bg-{% if order.status == 'Delivered' %}success{% elif order.status == 'Shipped' %}info{% elif order.status == 'Declined' %}danger{% else %}warning{% endif %}">
+                            {{ order.status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if order.proof_image %}
+                            <img src="{{ url_for('static', filename='uploads/proofs/' + order.proof_image) }}" width="100">
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No orders yet.</p>
+{% endif %}
+{% endblock %}

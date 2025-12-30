@@ -1,0 +1,29 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Manage Users{% endblock %}
+
+{% block content %}
+<h2>Manage Users</h2>
+
+<table class="table table-hover table-striped">
+    <thead class="table-light">
+        <tr>
+            <th>ID</th><th>Name</th><th>Email</th><th>Status</th><th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.fullname }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.status }}</td>
+                <td>
+                    <a href="{{ url_for('toggle_user', user_id=user.id) }}" class="btn btn-sm btn-warning">
+                        Toggle {{ 'Deactivate' if user.status == 'active' else 'Activate' }}
+                    </a>
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

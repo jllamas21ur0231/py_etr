@@ -6,7 +6,7 @@
 
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label class="form-label">Product Name <span class="text-danger">*</span></label>
@@ -34,12 +34,12 @@
                     <label class="form-label">Product Image</label>
                     {% if product.image %}
                         <div class="mb-2">
-                            <img src="{{ url_for('static', filename='uploads/products/' + product.image) }}" width="200" class="rounded">
-                            <p class="text-muted small">Current image</p>
+                            <p>Current image:</p>
+                            <img src="{{ url_for('static', filename='uploads/products/' + product.image) }}" width="300" class="rounded shadow">
                         </div>
                     {% endif %}
                     <input type="file" name="image" class="form-control" accept="image/*">
-                    <small class="text-muted">Leave empty to keep current image</small>
+                    <small class="text-muted">Upload new image to replace (optional)</small>
                 </div>
                 <div class="col-12 mb-3">
                     <label class="form-label">Description</label>

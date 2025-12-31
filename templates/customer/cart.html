@@ -21,8 +21,20 @@
                     {% for item in cart_items %}
                         <tr>
                             <td>
-                                <img src="{{ url_for('static', filename='uploads/products/' + item.product.image) if item.product.image else 'https://via.placeholder.com/60' }}" width="60" class="rounded me-3">
-                                {{ item.product.name }}
+                                <div class="d-flex align-items-center">
+                                    {% if item.product.image %}
+                                        <img src="{{ url_for('static', filename='uploads/products/' + item.product.image) }}"
+                                            width="80" height="80" class="rounded me-3 object-fit-cover" alt="{{ item.product.name }}">
+                                    {% else %}
+                                        <div class="bg-light rounded d-flex align-items-center justify-content-center me-3" style="width:80px; height:80px;">
+                                            <i class="fas fa-image fa-2x text-muted"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <strong>{{ item.product.name }}</strong><br>
+                                        <small class="text-muted">{{ item.product.description|default('No description')|truncate(60) }}</small>
+                                    </div>
+                                </div>
                             </td>
                             <td>₱{{ item.product.price }}</td>
                             <td>

@@ -243,7 +243,7 @@ def suggest_product():
     if 'image' in request.files:
         file = request.files['image']
         if file and file.filename != '':
-            filename = f"prod_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+            filename = f"prod_sugg_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
             file.save(os.path.join(app.config['PRODUCT_UPLOAD_FOLDER'], filename))
     
     cur.execute("""
@@ -261,8 +261,8 @@ def suggest_product():
     ))
     mysql.connection.commit()
     cur.close()
-    flash('Your product suggestion has been submitted for approval!', 'success')
-    return redirect(url_for('catalog'))
+    flash('Your product suggestion (with image) has been submitted for approval!', 'success')
+    return redirect(url_for('my_suggestions'))
 
 @app.route('/admin/approve_product/<int:pid>')
 @login_required('admin')
@@ -316,27 +316,28 @@ def my_suggestions():
 def edit_suggestion(pid):
     cur = mysql.connection.cursor()
     
-    # Security: only allow editing own suggestions that are still pending or declined
-    cur.execute("SELECT * FROM products WHERE id = %s AND suggested_by = %s AND status != 'approved'", (pid, session['user_id']))
+    # Only check ownership — allow edit even if approved
+    cur.execute("SELECT * FROM products WHERE id = %s AND suggested_by = %s", (pid, session['user_id']))
     product = cur.fetchone()
     
     if not product:
-        flash('You can only edit your own pending or declined suggestions.', 'danger')
+        flash('Product not found or not yours.', 'danger')
+        cur.close()
         return redirect(url_for('my_suggestions'))
     
     if request.method == 'POST':
-        filename = product['image']  # keep old image by default
+        filename = product['image']
         if 'image' in request.files:
             file = request.files['image']
             if file and file.filename != '':
-                # Delete old image if exists
                 if filename:
                     old_path = os.path.join(app.config['PRODUCT_UPLOAD_FOLDER'], filename)
                     if os.path.exists(old_path):
                         os.remove(old_path)
-                filename = f"prod_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+                filename = f"prod_sugg_edit_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
                 file.save(os.path.join(app.config['PRODUCT_UPLOAD_FOLDER'], filename))
         
+        # Reset to pending when edited (so admin reviews changes)
         cur.execute("""
             UPDATE products 
             SET name = %s, description = %s, price = %s, stock = %s, category_id = %s, status = 'pending', image = %s
@@ -352,10 +353,9 @@ def edit_suggestion(pid):
         ))
         mysql.connection.commit()
         cur.close()
-        flash('Your suggestion has been updated and sent back for review!', 'success')
+        flash('Your product has been updated and sent back for review!', 'info')
         return redirect(url_for('my_suggestions'))
     
-    # GET: show form pre-filled
     cur.execute("SELECT * FROM categories")
     categories = cur.fetchall()
     cur.close()
@@ -367,13 +367,21 @@ def edit_suggestion(pid):
 def delete_suggestion(pid):
     cur = mysql.connection.cursor()
     
-    # Security: only delete own suggestions that are not approved
-    cur.execute("DELETE FROM products WHERE id = %s AND suggested_by = %s AND status != 'approved'", (pid, session['user_id']))
+    # Only check ownership — allow delete even if approved
+    cur.execute("SELECT image FROM products WHERE id = %s AND suggested_by = %s", (pid, session['user_id']))
+    product = cur.fetchone()
     
-    if cur.rowcount == 0:
-        flash('You can only delete your own pending or declined suggestions.', 'danger')
+    if not product:
+        flash('Product not found or not yours.', 'danger')
     else:
-        flash('Your suggestion has been deleted.', 'info')
+        # Delete image if exists
+        if product['image']:
+            image_path = os.path.join(app.config['PRODUCT_UPLOAD_FOLDER'], product['image'])
+            if os.path.exists(image_path):
+                os.remove(image_path)
+        
+        cur.execute("DELETE FROM products WHERE id = %s", (pid,))
+        flash('Product deleted successfully.', 'success')
     
     mysql.connection.commit()
     cur.close()
@@ -459,26 +467,24 @@ def manage_products():
     cur.execute("SELECT * FROM categories")
     categories = cur.fetchall()
     form.category_id.choices = [(c['id'], c['name']) for c in categories]
-    
+
     if form.validate_on_submit():
-        # Handle image upload
+        # === HANDLE IMAGE UPLOAD ===
         filename = None
         if 'image' in request.files:
             file = request.files['image']
             if file and file.filename != '':
-                filename = f"prod_admin_{datetime.now().strftime('%Y%m%d%H%M%S')}_{file.filename}"
+                filename = f"prod_admin_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
                 file.save(os.path.join(app.config['PRODUCT_UPLOAD_FOLDER'], filename))
 
         if request.args.get('id'):
-            # === EDIT EXISTING PRODUCT ===
+            # EDIT EXISTING PRODUCT
             product_id = request.args.get('id')
             cur.execute("SELECT image FROM products WHERE id = %s", (product_id,))
             old_image = cur.fetchone()['image']
-            
-            # Use new image if uploaded, otherwise keep old one
             final_image = filename or old_image
-            
-            # If new image uploaded and old exists → delete old image
+
+            # Delete old image if replaced
             if filename and old_image:
                 old_path = os.path.join(app.config['PRODUCT_UPLOAD_FOLDER'], old_image)
                 if os.path.exists(old_path):
@@ -488,37 +494,24 @@ def manage_products():
                 UPDATE products 
                 SET name=%s, description=%s, price=%s, stock=%s, category_id=%s, image=%s
                 WHERE id=%s
-            """, (
-                form.name.data,
-                form.description.data,
-                form.price.data,
-                form.stock.data,
-                form.category_id.data,
-                final_image,
-                product_id
-            ))
+            """, (form.name.data, form.description.data, form.price.data, form.stock.data,
+                  form.category_id.data, final_image, product_id))
             flash('Product updated successfully!', 'success')
 
         else:
-            # === ADD NEW PRODUCT ===
+            # ADD NEW PRODUCT
             cur.execute("""
                 INSERT INTO products 
                 (name, description, price, stock, category_id, image, status) 
                 VALUES (%s, %s, %s, %s, %s, %s, 'approved')
-            """, (
-                form.name.data,
-                form.description.data,
-                form.price.data,
-                form.stock.data,
-                form.category_id.data,
-                filename
-            ))
+            """, (form.name.data, form.description.data, form.price.data, form.stock.data,
+                  form.category_id.data, filename))
             flash('Product added successfully!', 'success')
 
         mysql.connection.commit()
         cur.close()
         return redirect(url_for('manage_products'))
-    
+
     # Load product for editing
     product_id = request.args.get('id')
     if product_id:
@@ -530,11 +523,8 @@ def manage_products():
             form.price.data = product['price']
             form.stock.data = product['stock']
             form.category_id.data = product['category_id']
-        else:
-            flash('Product not found.', 'danger')
-            return redirect(url_for('manage_products'))
-    
-    # Load all products for display
+
+    # Load all products for table
     cur.execute("""
         SELECT p.*, c.name as category_name, u.fullname as suggested_by_name 
         FROM products p 
@@ -544,7 +534,7 @@ def manage_products():
     """)
     products = cur.fetchall()
     cur.close()
-    
+
     return render_template('admin/manage_products.html', form=form, products=products)
 
 @app.route('/admin/delete_product/<int:pid>')

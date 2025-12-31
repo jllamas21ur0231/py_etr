@@ -6,7 +6,7 @@
 <a href="{{ url_for('manage_products') }}" class="btn btn-success mb-3">Add New Product (Admin)</a>
 
 <div class="card stat-card mb-4 p-4">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {{ form.hidden_tag() }}
         <div class="row">
             <div class="col-md-6 mb-3">
@@ -16,9 +16,18 @@
                 {{ form.price.label(class="form-label") }} {{ form.price(class="form-control") }}
             </div>
             <div class="col-12 mb-3">
-                <label class="form-label">Product Image</label>
-                {{ form.image(class="form-control") }}
+    <label class="form-label">Product Image</label>
+    {{ form.image(class="form-control") }}
+    {% if request.args.get('id') %}
+        {% set pid = request.args.get('id')|int %}
+        {% for p in products if p.id == pid and p.image %}
+            <div class="mt-2">
+                <p>Current image:</p>
+                <img src="{{ url_for('static', filename='uploads/products/' + p.image) }}" width="200" class="rounded shadow">
             </div>
+        {% endfor %}
+    {% endif %}
+</div>
             <div class="col-md-6 mb-3">
                 {{ form.stock.label(class="form-label") }} {{ form.stock(class="form-control") }}
             </div>
@@ -117,9 +126,9 @@
                 <td>{{ p.name }}</td>
                 <td>
                     {% if p.image %}
-                        <img src="{{ url_for('static', filename='uploads/products/' + p.image) }}" width="80" class="rounded">
+                        <img src="{{ url_for('static', filename='uploads/products/' + p.image) }}" width="80" class="rounded img-fluid">
                     {% else %}
-                        <em>No image</em>
+                        <em class="text-muted">No image</em>
                     {% endif %}
                 </td>
                 <td>₱{{ p.price }}</td>

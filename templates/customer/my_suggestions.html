@@ -16,9 +16,9 @@
 <div class="modal fade" id="addProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header text-white" style="background-color: #1a56db;">
                 <h5 class="modal-title" id="addProductModalLabel">Suggest a New Product</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted mb-4">Your suggestion will be reviewed by the admin before appearing in the catalog.</p>
@@ -58,7 +58,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Submit for Approval</button>
+                        <button type="submit" class="btn btn-primary" style="background-color: #1a56db; border-color: #1a56db;">Submit for Approval</button>
                     </div>
                 </form>
             </div>
@@ -130,11 +130,14 @@
         </div>
     </div>
 {% else %}
-    <div class="text-center py-5">
-        <p class="text-muted">You haven't suggested any products yet.</p>
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addProductModal">
-            <i class="fas fa-plus me-2"></i> Be the first to suggest one!
-        </button>
+    <div class="card stat-card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-lightbulb fa-3x text-muted mb-3"></i>
+            <p class="text-muted fs-5 mb-3">You haven't suggested any products yet.</p>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                <i class="fas fa-plus me-2"></i> Be the first to suggest one!
+            </button>
+        </div>
     </div>
 {% endif %}
 

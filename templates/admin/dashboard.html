@@ -105,23 +105,37 @@
 
 <script>
     // Users Bar Chart
+    var usersData = {{ users_by_month|tojson }};
     new Chart(document.getElementById('usersChart'), {
         type: 'bar',
         data: { 
             labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
-            datasets: [{ label: 'Users', data: {{ users_by_month }}, backgroundColor: '#0d6efd' }] 
+            datasets: [{ label: 'Users', data: usersData, backgroundColor: '#0d6efd' }] 
         },
-        options: { scales: { y: { beginAtZero: true } } }
+        options: { 
+            scales: { 
+                y: { beginAtZero: true } 
+            },
+            responsive: true,
+            maintainAspectRatio: true
+        }
     });
 
     // Sales Line Chart
+    var salesData = {{ sales_by_month|tojson }};
     new Chart(document.getElementById('salesChart'), {
         type: 'line',
         data: { 
             labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
-            datasets: [{ label: 'Sales', data: {{ sales_by_month }}, fill: true, backgroundColor: 'rgba(13,110,253,0.2)', borderColor: '#0d6efd' }] 
+            datasets: [{ label: 'Sales', data: salesData, fill: true, backgroundColor: 'rgba(13,110,253,0.2)', borderColor: '#0d6efd' }] 
         },
-        options: { scales: { y: { beginAtZero: true } } }
+        options: { 
+            scales: { 
+                y: { beginAtZero: true } 
+            },
+            responsive: true,
+            maintainAspectRatio: true
+        }
     });
 </script>
 {% endblock %}

@@ -429,7 +429,8 @@ def admin_dashboard():
     users_by_month_raw = cur.fetchall()
     users_by_month = [0] * 12
     for row in users_by_month_raw:
-        users_by_month[row['month'] - 1] = row['count']
+        if row['month'] and row['count']:
+            users_by_month[row['month'] - 1] = int(row['count'])
     
     # Sales by month
     cur.execute("""
@@ -439,9 +440,12 @@ def admin_dashboard():
         GROUP BY MONTH(order_date)
     """, (year,))
     sales_by_month_raw = cur.fetchall()
-    sales_by_month = [0] * 12
+    sales_by_month = [0.0] * 12
     for row in sales_by_month_raw:
-        sales_by_month[row['month'] - 1] = row['sales']
+        if row['month'] and row['sales'] is not None:
+            sales_by_month[row['month'] - 1] = float(row['sales'])
+        else:
+            sales_by_month[row['month'] - 1] = 0.0
     
     # Orders for table
     cur.execute("""
@@ -625,6 +629,26 @@ def toggle_user(user_id):
     mysql.connection.commit()
     cur.close()
     flash('User status updated', 'success')
+    return redirect(url_for('manage_users'))
+
+@app.route('/admin/reset_password/<int:user_id>')
+@login_required('admin')
+def reset_user_password(user_id):
+    cur = mysql.connection.cursor()
+    # Check if user exists
+    cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+    user = cur.fetchone()
+    if not user:
+        flash('User not found', 'danger')
+        cur.close()
+        return redirect(url_for('manage_users'))
+    
+    # Reset password to default
+    default_password = 'password123'
+    cur.execute("UPDATE users SET password = %s WHERE id = %s", (default_password, user_id))
+    mysql.connection.commit()
+    cur.close()
+    flash(f'Password reset successfully for {user["fullname"]}. New password: {default_password}', 'success')
     return redirect(url_for('manage_users'))
 
 @app.route('/logout')

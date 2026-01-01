@@ -134,6 +134,69 @@ def add_to_cart(product_id):
     flash('Added to cart!', 'success')
     return redirect(url_for('catalog'))
 
+@app.route('/buy_now/<int:product_id>')
+@login_required('customer')
+def buy_now(product_id):
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM products WHERE id = %s AND stock > 0 AND status = 'approved'", (product_id,))
+    product = cur.fetchone()
+    cur.close()
+    
+    if not product:
+        flash('Product not available', 'danger')
+        return redirect(url_for('catalog'))
+    
+    # Create temporary cart with single item
+    session['buy_now_item'] = {'product_id': product_id, 'quantity': 1}
+    session.modified = True
+    return redirect(url_for('buy_now_checkout'))
+
+@app.route('/buy_now_checkout', methods=['GET', 'POST'])
+@login_required('customer')
+def buy_now_checkout():
+    if 'buy_now_item' not in session:
+        flash('No item selected for purchase', 'warning')
+        return redirect(url_for('catalog'))
+    
+    product_id = session['buy_now_item']['product_id']
+    quantity = session['buy_now_item']['quantity']
+    
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM products WHERE id = %s", (product_id,))
+    product = cur.fetchone()
+    
+    if not product:
+        flash('Product not found', 'danger')
+        session.pop('buy_now_item', None)
+        return redirect(url_for('catalog'))
+    
+    total = product['price'] * quantity
+    
+    if request.method == 'POST':
+        payment_method = request.form['payment_method']
+        cur.execute("""
+            INSERT INTO orders (user_id, total_amount, payment_method, status) 
+            VALUES (%s, %s, %s, 'Pending')
+        """, (session['user_id'], total, payment_method))
+        order_id = cur.lastrowid
+        
+        cur.execute("INSERT INTO order_items (order_id, product_id, quantity) VALUES (%s, %s, %s)",
+                    (order_id, product_id, quantity))
+        cur.execute("UPDATE products SET stock = stock - %s WHERE id = %s", (quantity, product_id))
+        
+        mysql.connection.commit()
+        cur.close()
+        session.pop('buy_now_item', None)
+        session.modified = True
+        
+        if payment_method == 'online':
+            return redirect(url_for('upload_payment', order_id=order_id))
+        flash('Order placed successfully!', 'success')
+        return redirect(url_for('customer_orders'))
+    
+    cur.close()
+    return render_template('customer/checkout.html', total=total, product=product, is_buy_now=True)
+
 @app.route('/cart')
 @login_required('customer')
 def cart():
@@ -199,7 +262,7 @@ def checkout():
         flash('Order placed successfully!', 'success')
         return redirect(url_for('customer_orders'))
     
-    return render_template('customer/checkout.html', total=total)
+    return render_template('customer/checkout.html', total=total, is_buy_now=False)
 
 @app.route('/upload_payment/<int:order_id>', methods=['GET', 'POST'])
 @login_required('customer')
@@ -222,15 +285,53 @@ def upload_payment(order_id):
 def customer_orders():
     cur = mysql.connection.cursor()
     cur.execute("""
-        SELECT o.*, oi.product_id, p.name as product_name 
+        SELECT o.*, oi.product_id, p.name as product_name, p.image 
         FROM orders o 
         JOIN order_items oi ON o.id = oi.order_id 
         JOIN products p ON oi.product_id = p.id 
         WHERE o.user_id = %s
+        ORDER BY o.order_date DESC
     """, (session['user_id'],))
     orders = cur.fetchall()
     cur.close()
     return render_template('customer/orders.html', orders=orders)
+
+@app.route('/cancel_order/<int:order_id>')
+@login_required('customer')
+def cancel_order(order_id):
+    cur = mysql.connection.cursor()
+    
+    # Check if order belongs to user and can be cancelled
+    cur.execute("SELECT * FROM orders WHERE id = %s AND user_id = %s", (order_id, session['user_id']))
+    order = cur.fetchone()
+    
+    if not order:
+        flash('Order not found', 'danger')
+        return redirect(url_for('customer_orders'))
+    
+    if order['status'] not in ['Pending']:
+        flash('Order cannot be cancelled', 'warning')
+        return redirect(url_for('customer_orders'))
+    
+    # Restore product stock
+    cur.execute("""
+        SELECT oi.product_id, oi.quantity 
+        FROM order_items oi 
+        WHERE oi.order_id = %s
+    """, (order_id,))
+    order_items = cur.fetchall()
+    
+    for item in order_items:
+        cur.execute("UPDATE products SET stock = stock + %s WHERE id = %s", 
+                   (item['quantity'], item['product_id']))
+    
+    # Update order status to Cancelled
+    cur.execute("UPDATE orders SET status = 'Cancelled' WHERE id = %s", (order_id,))
+    mysql.connection.commit()
+    cur.close()
+    
+    flash('Order cancelled successfully', 'success')
+    return redirect(url_for('customer_orders'))
 
 # ====================== ADMIN ROUTES ======================
 

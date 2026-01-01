@@ -32,6 +32,7 @@
         color: #374151;
         font-weight: 500;
         transition: color 0.2s;
+        font-size: 1.1rem;
       }
       .nav-link:hover {
         color: #1a56db;
@@ -52,7 +53,7 @@
         white-space: nowrap;
       }
       .add-suggestion {
-        background-color: #28a745;
+        background-color: #000000;
         border-radius: 20px;
         font-size: 0.9rem;
         padding: 6px 16px;
@@ -60,7 +61,7 @@
         transition: background-color 0.2s;
       }
       .add-suggestion:hover {
-        background-color: #218838;
+        background-color: #333333;
         color: #fff;
       }
       .logout-btn {
@@ -234,18 +235,20 @@
       <div class="container-fluid">
         <div class="d-flex align-items-center">
           <a
-            class="navbar-brand me-2"
+            class="navbar-brand me-2 d-flex align-items-center"
             href="{{ url_for('index') }}"
             style="margin-right: 0.5rem !important"
-            >Py ETR Shop</a
           >
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Digicart Logo" style="height: 32px; width: auto; margin-right: 8px;">
+            Digicart
+          </a>
           {% if session.role == 'customer' %}
           <a
             class="nav-link"
             href="{{ url_for('catalog') }}"
             style="
               padding-left: 0;
-              margin-left: 0;
+              margin-left: 20px;
               padding-top: 0;
               padding-bottom: 0;
             "
@@ -263,6 +266,9 @@
         </button>
         <div class="collapse navbar-collapse" id="navbar">
           <ul class="navbar-nav me-auto">
+          </ul>
+          <ul class="navbar-nav ms-auto">
+            {% if session.logged_in %}
             {% if session.role == 'customer' %}
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('customer_orders') }}"
@@ -270,12 +276,6 @@
               >
             </li>
             {% endif %}
-          </ul>
-          <ul class="navbar-nav ms-auto">
-            {% if session.logged_in %}
-            <li class="nav-item">
-              <span class="nav-link">Hello, {{ session.username }}</span>
-            </li>
             <li class="nav-item cart-icon">
               <a class="nav-link" href="{{ url_for('cart') }}"
                 ><i class="fas fa-shopping-cart"></i
@@ -287,13 +287,16 @@
               {% endif %}
             </li>
             <li class="nav-item">
+              <span class="nav-link">Hello, {{ session.username }}</span>
+            </li>
+            <li class="nav-item" style="margin-left: 15px;">
               <a
                 class="nav-link btn add-suggestion text-white"
                 href="{{ url_for('my_suggestions') }}"
                 >+ Add suggestion</a
               >
             </li>
-            <li class="nav-item">
+            <li class="nav-item" style="margin-left: 10px;">
               <a
                 class="nav-link btn logout-btn text-white"
                 href="{{ url_for('logout') }}"

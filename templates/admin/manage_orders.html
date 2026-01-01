@@ -17,7 +17,7 @@
                 <td>{{ order.customer_name }}</td>
                 <td>₱{{ order.total_amount }}</td>
                 <td>{{ order.payment_method }}</td>
-                <td><span class="badge bg-{% if order.status == 'Delivered' %}success{% elif order.status == 'Declined' %}danger{% else %}warning{% endif %}">{{ order.status }}</span></td>
+                <td><span class="badge bg-{% if order.status == 'Delivered' %}success{% elif order.status == 'Shipped' %}info{% elif order.status == 'Declined' or order.status == 'Cancelled' %}danger{% else %}warning{% endif %}">{{ order.status }}</span></td>
                 <td>
                     {% if order.proof_image %}
                         <img src="{{ url_for('static', filename='uploads/proofs/' + order.proof_image) }}" width="100">

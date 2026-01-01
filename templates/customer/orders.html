@@ -17,6 +17,7 @@
                         <th>Total</th>
                         <th>Status</th>
                         <th>Proof</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -34,13 +35,28 @@
                             </td>
                             <td class="align-middle"><strong>₱{{ order.total_amount }}</strong></td>
                             <td class="align-middle">
-                                <span class="badge bg-{% if order.status == 'Delivered' %}success{% elif order.status == 'Shipped' %}info{% elif order.status == 'Declined' %}danger{% else %}warning{% endif %}">
-                                    {{ order.status }}
-                                </span>
+                                {% if order.status == 'Cancelled' %}
+                                    <span class="badge bg-danger">Order Cancelled</span>
+                                {% else %}
+                                    <span class="badge bg-{% if order.status == 'Delivered' %}success{% elif order.status == 'Shipped' %}info{% elif order.status == 'Declined' %}danger{% else %}warning{% endif %}">
+                                        {{ order.status }}
+                                    </span>
+                                {% endif %}
                             </td>
                             <td class="align-middle">
                                 {% if order.proof_image %}
                                     <img src="{{ url_for('static', filename='uploads/proofs/' + order.proof_image) }}" width="100" class="rounded">
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                {% if order.status == 'Pending' %}
+                                    <a href="{{ url_for('cancel_order', order_id=order.id) }}" 
+                                       class="btn btn-sm btn-outline-danger"
+                                       onclick="return confirm('Are you sure you want to cancel this order?')">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </a>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}

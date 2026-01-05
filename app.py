@@ -3,7 +3,7 @@ from flask_mysqldb import MySQL
 from forms import RegisterForm, LoginForm, ProductForm, CategoryForm, PaymentProofForm
 from config import Config
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -23,17 +23,41 @@ os.makedirs(PRODUCT_UPLOAD_FOLDER, exist_ok=True)
 ADMIN_EMAIL = 'admin@shop.com'
 ADMIN_PASSWORD = 'admin123'
 
-# Helper to check if user is logged in
+# Updated login_required to support separate sessions
 def login_required(role='customer'):
     def decorator(f):
         def wrapper(*args, **kwargs):
-            if 'logged_in' not in session or session.get('role') != role:
-                flash('Please log in first', 'warning')
-                return redirect(url_for('customer_login' if role == 'customer' else 'admin_login'))
+            if role == 'customer':
+                if not session.get('customer_logged_in'):
+                    flash('Please log in as customer first', 'warning')
+                    return redirect(url_for('customer_login'))
+            elif role == 'admin':
+                if not session.get('admin_logged_in'):
+                    flash('Please log in as admin first', 'warning')
+                    return redirect(url_for('admin_login'))
             return f(*args, **kwargs)
         wrapper.__name__ = f.__name__
         return wrapper
     return decorator
+
+def update_order_statuses():
+    """Automatically change 'Shipped' orders older than 3 days to 'Delivered'"""
+    cur = mysql.connection.cursor()
+    three_days_ago = datetime.now() - timedelta(days=3)
+    
+    cur.execute("""
+        UPDATE orders 
+        SET status = 'Delivered' 
+        WHERE status = 'Shipped' 
+          AND order_date <= %s
+    """, (three_days_ago,))
+    
+    rows_affected = cur.rowcount
+    mysql.connection.commit()
+    cur.close()
+    
+    if rows_affected > 0:
+        print(f"[Auto-Delivery] {rows_affected} order(s) marked as Delivered")
 
 # ====================== CUSTOMER ROUTES ======================
 
@@ -68,11 +92,11 @@ def customer_login():
         user = cur.fetchone()
         cur.close()
         if user:
-            session['logged_in'] = True
-            session['role'] = 'customer'
-            session['user_id'] = user['id']
-            session['username'] = user['fullname']
-            flash('Login successful!', 'success')
+            session['customer_logged_in'] = True
+            session['customer_role'] = 'customer'
+            session['customer_user_id'] = user['id']
+            session['customer_username'] = user['fullname']
+            flash('Customer login successful!', 'success')
             return redirect(url_for('catalog'))
         flash('Invalid credentials or account inactive', 'danger')
     return render_template('customer/login.html', form=form)
@@ -177,7 +201,7 @@ def buy_now_checkout():
         cur.execute("""
             INSERT INTO orders (user_id, total_amount, payment_method, status) 
             VALUES (%s, %s, %s, 'Pending')
-        """, (session['user_id'], total, payment_method))
+        """, (session['customer_user_id'], total, payment_method))
         order_id = cur.lastrowid
         
         cur.execute("INSERT INTO order_items (order_id, product_id, quantity) VALUES (%s, %s, %s)",
@@ -244,7 +268,7 @@ def checkout():
         cur.execute("""
             INSERT INTO orders (user_id, total_amount, payment_method, status) 
             VALUES (%s, %s, %s, 'Pending')
-        """, (session['user_id'], total, payment_method))
+        """, (session['customer_user_id'], total, payment_method))
         order_id = cur.lastrowid
         
         for pid, qty in session['cart'].items():
@@ -283,6 +307,7 @@ def upload_payment(order_id):
 @app.route('/customer/orders')
 @login_required('customer')
 def customer_orders():
+    update_order_statuses()
     cur = mysql.connection.cursor()
     cur.execute("""
         SELECT o.*, oi.product_id, p.name as product_name, p.image 
@@ -291,7 +316,7 @@ def customer_orders():
         JOIN products p ON oi.product_id = p.id 
         WHERE o.user_id = %s
         ORDER BY o.order_date DESC
-    """, (session['user_id'],))
+    """, (session['customer_user_id'],))
     orders = cur.fetchall()
     cur.close()
     return render_template('customer/orders.html', orders=orders)
@@ -302,7 +327,7 @@ def cancel_order(order_id):
     cur = mysql.connection.cursor()
     
     # Check if order belongs to user and can be cancelled
-    cur.execute("SELECT * FROM orders WHERE id = %s AND user_id = %s", (order_id, session['user_id']))
+    cur.execute("SELECT * FROM orders WHERE id = %s AND user_id = %s", (order_id, session['customer_user_id']))
     order = cur.fetchone()
     
     if not order:
@@ -336,7 +361,7 @@ def cancel_order(order_id):
 # ====================== ADMIN ROUTES ======================
 
 @app.route('/suggest_product', methods=['POST'])
-@login_required()
+@login_required('customer')  # Only customers can suggest
 def suggest_product():
     cur = mysql.connection.cursor()
     
@@ -357,7 +382,7 @@ def suggest_product():
         request.form['price'],
         request.form.get('stock', 0),
         request.form['category_id'],
-        session['user_id'],
+        session['customer_user_id'],
         filename
     ))
     mysql.connection.commit()
@@ -391,7 +416,7 @@ def decline_product(pid):
     return redirect(url_for('manage_products'))
 
 @app.route('/my_suggestions')
-@login_required()
+@login_required('customer')
 def my_suggestions():
     cur = mysql.connection.cursor()
     
@@ -402,7 +427,7 @@ def my_suggestions():
         LEFT JOIN categories c ON p.category_id = c.id 
         WHERE p.suggested_by = %s 
         ORDER BY p.id DESC
-    """, (session['user_id'],))
+    """, (session['customer_user_id'],))
     suggestions = cur.fetchall()
     
     # Get all categories for the modal form
@@ -413,12 +438,12 @@ def my_suggestions():
     return render_template('customer/my_suggestions.html', suggestions=suggestions, categories=categories)
 
 @app.route('/edit_suggestion/<int:pid>', methods=['GET', 'POST'])
-@login_required()
+@login_required('customer')
 def edit_suggestion(pid):
     cur = mysql.connection.cursor()
     
     # Only check ownership — allow edit even if approved
-    cur.execute("SELECT * FROM products WHERE id = %s AND suggested_by = %s", (pid, session['user_id']))
+    cur.execute("SELECT * FROM products WHERE id = %s AND suggested_by = %s", (pid, session['customer_user_id']))
     product = cur.fetchone()
     
     if not product:
@@ -464,12 +489,12 @@ def edit_suggestion(pid):
     return render_template('customer/edit_suggestion.html', product=product, categories=categories)
 
 @app.route('/delete_suggestion/<int:pid>')
-@login_required()
+@login_required('customer')
 def delete_suggestion(pid):
     cur = mysql.connection.cursor()
     
     # Only check ownership — allow delete even if approved
-    cur.execute("SELECT image FROM products WHERE id = %s AND suggested_by = %s", (pid, session['user_id']))
+    cur.execute("SELECT image FROM products WHERE id = %s AND suggested_by = %s", (pid, session['customer_user_id']))
     product = cur.fetchone()
     
     if not product:
@@ -494,8 +519,9 @@ def admin_login():
     form = LoginForm()
     if form.validate_on_submit():
         if form.email.data == ADMIN_EMAIL and form.password.data == ADMIN_PASSWORD:
-            session['logged_in'] = True
-            session['role'] = 'admin'
+            session['admin_logged_in'] = True
+            session['admin_role'] = 'admin'
+            session['admin_username'] = 'Admin'
             flash('Admin login successful', 'success')
             return redirect(url_for('admin_dashboard'))
         flash('Invalid admin credentials', 'danger')
@@ -504,6 +530,7 @@ def admin_login():
 @app.route('/admin/dashboard')
 @login_required('admin')
 def admin_dashboard():
+    update_order_statuses()
     year = request.args.get('year', datetime.now().year, type=int)
     cur = mysql.connection.cursor()
     
@@ -673,6 +700,7 @@ def manage_categories():
 @app.route('/admin/orders')
 @login_required('admin')
 def manage_orders():
+    update_order_statuses()
     cur = mysql.connection.cursor()
     cur.execute("""
         SELECT o.*, u.fullname as customer_name 
@@ -754,8 +782,12 @@ def reset_user_password(user_id):
 
 @app.route('/logout')
 def logout():
-    session.clear()
-    flash('Logged out', 'info')
+    # Clear both customer and admin sessions
+    keys = ['customer_logged_in', 'customer_role', 'customer_user_id', 'customer_username',
+            'admin_logged_in', 'admin_role', 'admin_username']
+    for key in keys:
+        session.pop(key, None)
+    flash('Logged out from all sessions', 'info')
     return redirect(url_for('index'))
 
 #=========================================

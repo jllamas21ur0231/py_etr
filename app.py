@@ -531,7 +531,12 @@ def admin_login():
 @login_required('admin')
 def admin_dashboard():
     update_order_statuses()
-    year = request.args.get('year', datetime.now().year, type=int)
+    current_year = datetime.now().year
+    default_year = max(2025, current_year)  # Ensure minimum year is 2025
+    year = request.args.get('year', default_year, type=int)
+    # Ensure year is at least 2025
+    if year < 2025:
+        year = 2025
     cur = mysql.connection.cursor()
     
     # Top stats
@@ -586,10 +591,12 @@ def admin_dashboard():
     orders = cur.fetchall()
     
     cur.close()
+    # Calculate year range for dropdown (2025 to current year + 5)
+    end_year = max(2030, current_year + 5)  # At least show up to 2030, or current year + 5 if later
     return render_template('admin/dashboard.html', total_users=total_users, total_orders=total_orders, 
                            total_sales=total_sales, total_products=total_products, 
                            users_by_month=users_by_month, sales_by_month=sales_by_month, 
-                           year=year, orders=orders)
+                           year=year, orders=orders, end_year=end_year)
 
 @app.route('/admin/products', methods=['GET', 'POST'])
 @login_required('admin')
@@ -780,14 +787,35 @@ def reset_user_password(user_id):
     flash(f'Password reset successfully for {user["fullname"]}. New password: {default_password}', 'success')
     return redirect(url_for('manage_users'))
 
-@app.route('/logout')
-def logout():
-    # Clear both customer and admin sessions
-    keys = ['customer_logged_in', 'customer_role', 'customer_user_id', 'customer_username',
-            'admin_logged_in', 'admin_role', 'admin_username']
+@app.route('/customer/logout')
+def customer_logout():
+    # Only clear customer session keys
+    keys = ['customer_logged_in', 'customer_role', 'customer_user_id', 'customer_username', 'cart', 'buy_now_item']
     for key in keys:
         session.pop(key, None)
-    flash('Logged out from all sessions', 'info')
+    
+    flash('Customer logged out successfully', 'info')
+    return redirect(url_for('customer_login'))
+
+@app.route('/admin/logout')
+def admin_logout():
+    # Only clear admin session keys
+    keys = ['admin_logged_in', 'admin_role', 'admin_username']
+    for key in keys:
+        session.pop(key, None)
+    
+    flash('Admin logged out successfully', 'info')
+    return redirect(url_for('admin_login'))
+
+# Keep the old logout route for backward compatibility, but redirect based on which session is active
+@app.route('/logout')
+def logout():
+    # Check which session is active and redirect to appropriate logout
+    if session.get('admin_logged_in'):
+        return redirect(url_for('admin_logout'))
+    elif session.get('customer_logged_in'):
+        return redirect(url_for('customer_logout'))
+    # If neither is logged in, redirect to index
     return redirect(url_for('index'))
 
 #=========================================

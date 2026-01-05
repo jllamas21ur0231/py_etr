@@ -8,7 +8,7 @@
         <div class="row">
             <div class="col-md-3">
                 <select name="year" class="form-select">
-                    {% for y in range(2020, 2026) %}  <!-- Adjust range as needed -->
+                    {% for y in range(2025, end_year + 1) %}
                         <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
                     {% endfor %}
                 </select>
